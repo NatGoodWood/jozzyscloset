@@ -14,6 +14,6 @@ export default function AdminLogin() {
       <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="username" />
       <input type="password" placeholder="Password" value={pw} onChange={e => setPw(e.target.value)} autoComplete="current-password" />
       {err && <p className="error">{err}</p>}
-      <button className="btn full" disabled={!email || !pw}>Sign in</button>
+      <button className="btn black full" disabled={!email || !pw}>Sign in</button>
     </form></main>)
 }
