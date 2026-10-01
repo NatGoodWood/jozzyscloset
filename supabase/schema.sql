@@ -37,7 +37,7 @@ create table settings (
   about text not null default 'We are a fashion wholesale store committed to trendy, high-quality clothing, bags and accessories at the best prices. Our goal is to help resellers and business owners grow their brands with confidence.',
   phone text not null default '024 000 0000',
   whatsapp text not null default '233240000000',
-  email text not null default 'hello@jozzyscloset.com',
+  email text not null default 'support@jozzyscloset.com',
   hero_url text);
 insert into settings default values;
 
