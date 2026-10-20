@@ -17,7 +17,7 @@ export default function Home() {
         <p>Quality fashion, trendy styles and unbeatable prices for resellers and business owners.</p>
         <Link className="btn black" to="/shop">Shop Wholesale →</Link>
       </div>
-      <div className="hero-i" style={settings?.hero_url ? { backgroundImage: `url(${settings.hero_url})` } : null} />
+      <div className="hero-i">{settings?.hero_url && <><div className="hero-bg" style={{ backgroundImage: `url(${settings.hero_url})` }} /><img src={settings.hero_url} alt="Jozzys Closet wholesale fashion" /></>}</div>
     </section>
     <section className="trust">{trust.map(([i, a, b]) => <div key={a}><Icon n={i} size={28} /><span><b>{a}</b>{b && <small>{b}</small>}</span></div>)}</section>
     <main>
