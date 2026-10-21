@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, ghc } from '../supabase'
-import { PAYSTACK_PUBLIC_KEY, paystackReady, loadPaystack } from '../paystack'
+import { loadPaystack } from '../paystack'
 import { useStore } from '../store'
 
 export default function Cart() {
@@ -14,7 +14,7 @@ export default function Cart() {
   useEffect(() => { if (user) setF(x => ({ ...x, name: x.name || user.user_metadata?.full_name || '', email: x.email || user.email || '' })) }, [user])
   const set = k => e => setF({ ...f, [k]: e.target.value })
   const validEmail = /^\S+@\S+\.\S+$/.test(f.email.trim())
-  const ready = paystackReady && short <= 0 && f.name.trim() && validEmail && f.phone.trim().length >= 7 && f.address.trim()
+  const ready = short <= 0 && f.name.trim() && validEmail && f.phone.trim().length >= 7 && f.address.trim()
 
   async function confirmPay(ref) {
     settled.current = true; setErr(''); setBusy(true)
@@ -26,14 +26,18 @@ export default function Cart() {
     setBusy(true); setErr(''); settled.current = false
     const { data, error } = await supabase.rpc('start_checkout', { p_name: f.name, p_email: f.email, p_phone: f.phone, p_address: f.address, p_lines: lines.map(l => ({ id: l.id, size: l.size, qty: l.qty })) })
     if (error) { setBusy(false); return setErr(error.message) }
+    const ref = data.reference
+    let init
+    try { init = await supabase.functions.invoke('init-payment', { body: { reference: ref } }) } catch { init = { error: true } }
+    if (init.error || init.data?.error || !init.data?.access_code) { setBusy(false); return setErr(init.data?.error || 'The payment service could not be reached. Please try again in a moment.') }
     try { await loadPaystack() } catch { setBusy(false); return setErr('Could not load the payment window. Check your internet and try again.') }
-    window.PaystackPop.setup({
-      key: PAYSTACK_PUBLIC_KEY, email: f.email.trim(), amount: Math.round(Number(data.total) * 100), currency: 'GHS', ref: data.reference,
-      channels: ['mobile_money', 'card'],
-      metadata: { custom_fields: [{ display_name: 'Customer', variable_name: 'customer', value: f.name }, { display_name: 'Phone', variable_name: 'phone', value: f.phone }] },
-      callback: function (r) { confirmPay(r.reference) },
-      onClose: function () { if (!settled.current) { setBusy(false); setErr('The payment window was closed. If you already paid, do not pay again: check "Track an order" below in a minute.') } },
-    }).openIframe()
+    try {
+      new window.PaystackPop().resumeTransaction(init.data.access_code, {
+        onSuccess: tx => confirmPay(tx?.reference || ref),
+        onCancel: () => { if (!settled.current) { setBusy(false); setErr('The payment window was closed. If you already paid, do not pay again: check "Track an order" below in a minute.') } },
+        onError: e => { setBusy(false); setErr(e?.message || 'The payment could not be started.') },
+      })
+    } catch { setBusy(false); setErr('The payment window could not open. Please try again.') }
   }
   async function track() { const { data } = await supabase.rpc('track_order', { p_reference: t.ref, p_phone: t.phone }); setStatus(data || 'none') }
 
@@ -60,7 +64,6 @@ export default function Cart() {
         <input type="email" placeholder="Email (for your payment receipt)" value={f.email} onChange={set('email')} autoComplete="email" />
         <input placeholder="Phone number" value={f.phone} onChange={set('phone')} inputMode="tel" autoComplete="tel" />
         <input placeholder="Delivery address" value={f.address} onChange={set('address')} autoComplete="street-address" />
-        {!paystackReady && <p className="error">Online payment is not connected yet. Please check back soon.</p>}
         {err && <p className="error">{err}</p>}
         <button className="btn black full" disabled={!ready || busy} onClick={pay}>{busy ? 'Please wait…' : `Pay ${ghc(total)} with Paystack →`}</button>
         <p className="sub">Delivery is paid separately. See the note below.{!user && <> Tip: <Link to="/account">create an account</Link> to see all your orders in one place.</>}</p>
