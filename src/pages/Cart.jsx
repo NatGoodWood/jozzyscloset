@@ -1,30 +1,46 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase, ghc } from '../supabase'
+import { PAYSTACK_PUBLIC_KEY, paystackReady, loadPaystack } from '../paystack'
 import { useStore } from '../store'
 
 export default function Cart() {
   const { lines, setQty, clear, count, settings, user } = useStore()
   const min = settings?.min_order ?? 10, total = lines.reduce((a, l) => a + l.price * l.qty, 0), short = min - count
-  const [f, setF] = useState({ name: '', phone: '', address: '', ref: '' })
-  const [busy, setBusy] = useState(false), [err, setErr] = useState(''), [done, setDone] = useState('')
+  const [f, setF] = useState({ name: '', email: '', phone: '', address: '' })
+  const [busy, setBusy] = useState(false), [err, setErr] = useState(''), [done, setDone] = useState(null)
   const [t, setT] = useState({ ref: '', phone: '' }), [status, setStatus] = useState(null)
-  useEffect(() => { const n = user?.user_metadata?.full_name; if (n) setF(x => ({ ...x, name: x.name || n })) }, [user])
+  const settled = useRef(false)
+  useEffect(() => { if (user) setF(x => ({ ...x, name: x.name || user.user_metadata?.full_name || '', email: x.email || user.email || '' })) }, [user])
   const set = k => e => setF({ ...f, [k]: e.target.value })
-  const ready = short <= 0 && f.name && f.phone && f.address && f.ref.trim().length > 2
+  const validEmail = /^\S+@\S+\.\S+$/.test(f.email.trim())
+  const ready = paystackReady && short <= 0 && f.name.trim() && validEmail && f.phone.trim().length >= 7 && f.address.trim()
 
-  async function submit() {
-    setBusy(true); setErr('')
-    const { error } = await supabase.rpc('place_order', { p_name: f.name, p_phone: f.phone, p_address: f.address, p_reference: f.ref, p_lines: lines.map(l => ({ id: l.id, size: l.size, qty: l.qty })) })
-    setBusy(false)
-    if (error) return setErr(error.message)
-    setDone(f.ref.trim()); clear()
+  async function confirmPay(ref) {
+    settled.current = true; setErr(''); setBusy(true)
+    let ok = false
+    try { const { data, error } = await supabase.functions.invoke('verify-payment', { body: { reference: ref } }); ok = !error && data?.status === 'confirmed' } catch { ok = false }
+    setBusy(false); setDone({ ref, confirmed: ok }); clear()
+  }
+  async function pay() {
+    setBusy(true); setErr(''); settled.current = false
+    const { data, error } = await supabase.rpc('start_checkout', { p_name: f.name, p_email: f.email, p_phone: f.phone, p_address: f.address, p_lines: lines.map(l => ({ id: l.id, size: l.size, qty: l.qty })) })
+    if (error) { setBusy(false); return setErr(error.message) }
+    try { await loadPaystack() } catch { setBusy(false); return setErr('Could not load the payment window. Check your internet and try again.') }
+    window.PaystackPop.setup({
+      key: PAYSTACK_PUBLIC_KEY, email: f.email.trim(), amount: Math.round(Number(data.total) * 100), currency: 'GHS', ref: data.reference,
+      channels: ['mobile_money', 'card'],
+      metadata: { custom_fields: [{ display_name: 'Customer', variable_name: 'customer', value: f.name }, { display_name: 'Phone', variable_name: 'phone', value: f.phone }] },
+      callback: function (r) { confirmPay(r.reference) },
+      onClose: function () { if (!settled.current) { setBusy(false); setErr('The payment window was closed. If you already paid, do not pay again: check "Track an order" below in a minute.') } },
+    }).openIframe()
   }
   async function track() { const { data } = await supabase.rpc('track_order', { p_reference: t.ref, p_phone: t.phone }); setStatus(data || 'none') }
 
   return (<main>
     <h1>Your cart</h1>
-    {done && <div className="ok">Order received. We'll confirm reference <b>{done}</b> once your payment reaches us. You can track it below.</div>}
+    {done?.confirmed && <div className="ok">Payment received. Your order <b>{done.ref}</b> is confirmed. We will message you about delivery.</div>}
+    {done && !done.confirmed && <div className="ok">We received your payment for order <b>{done.ref}</b> and are confirming it. Please do not pay again. Check the status below in a minute.</div>}
     {!lines.length && !done && <p>Your cart is empty. <Link to="/shop">Start shopping</Link></p>}
     {lines.length > 0 && <>
       <section className="box">
@@ -38,23 +54,22 @@ export default function Cart() {
         <Link to="/shop" className="btn ghost">Keep shopping</Link>
       </section>
       {short <= 0 && <section className="box">
-        <h2>Payment details</h2>
-        <p>Send <b>{ghc(total)}</b> to:</p>
-        {settings && <dl><dt>Account name</dt><dd>{settings.account_name}</dd><dt>Method</dt><dd>{settings.method}</dd><dt>Number</dt><dd>{settings.account_number}</dd></dl>}
-        <p>Then enter your details and the payment reference from your receipt or SMS.</p>
+        <h2>Pay securely</h2>
+        <p>Total to pay: <b>{ghc(total)}</b>. Pay with Mobile Money or card. Your order is confirmed automatically once the payment goes through.</p>
         <input placeholder="Full name" value={f.name} onChange={set('name')} autoComplete="name" />
+        <input type="email" placeholder="Email (for your payment receipt)" value={f.email} onChange={set('email')} autoComplete="email" />
         <input placeholder="Phone number" value={f.phone} onChange={set('phone')} inputMode="tel" autoComplete="tel" />
         <input placeholder="Delivery address" value={f.address} onChange={set('address')} autoComplete="street-address" />
-        <input placeholder="Payment reference" value={f.ref} onChange={set('ref')} />
+        {!paystackReady && <p className="error">Online payment is not connected yet. Please check back soon.</p>}
         {err && <p className="error">{err}</p>}
-        <button className="btn black full" disabled={!ready || busy} onClick={submit}>{busy ? 'Sending…' : 'Send payment reference →'}</button>
-        {!user && <p className="sub">Tip: <Link to="/account">create an account</Link> to see all your orders in one place.</p>}
+        <button className="btn black full" disabled={!ready || busy} onClick={pay}>{busy ? 'Please wait…' : `Pay ${ghc(total)} with Paystack →`}</button>
+        <p className="sub">Delivery is paid separately. See the note below.{!user && <> Tip: <Link to="/account">create an account</Link> to see all your orders in one place.</>}</p>
       </section>}</>}
     <section className="box"><h2>Track an order</h2>
-      <input placeholder="Payment reference" value={t.ref} onChange={e => setT({ ...t, ref: e.target.value })} />
+      <input placeholder="Order reference (starts with JC)" value={t.ref} onChange={e => setT({ ...t, ref: e.target.value })} />
       <input placeholder="Phone number used on the order" value={t.phone} onChange={e => setT({ ...t, phone: e.target.value })} />
       <button className="btn ghost" disabled={!t.ref || !t.phone} onClick={track}>Check status</button>
-      {status && <p>{status === 'none' ? 'No order matches those details.' : <>Status: <span className={'tag ' + status}>{status}</span></>}</p>}
+      {status && <p>{status === 'none' ? 'No order matches those details.' : <>Status: <span className={'tag ' + status}>{status === 'unpaid' ? 'awaiting payment' : status}</span></>}</p>}
     </section>
     <p className="note">{settings?.delivery_note || 'Delivery within Sunyani is GH₵30 to GH₵50, depending on distance.'}</p>
   </main>)
