@@ -7,8 +7,8 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publisha
 export const configured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY)
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
-// Public visitors see only the Coming Soon page until this moment (00:00 Accra time, 25 October 2026).
-export const LAUNCH_AT = new Date('2026-10-25T00:00:00Z')
+// Public visitors see only the Coming Soon page until this moment (6:00 PM Accra time, 25 October 2026).
+export const LAUNCH_AT = new Date('2026-10-25T18:00:00Z')
 
 export const CATEGORIES = ['Dresses', 'Tops', 'Bottoms', 'Sets', 'Bags', 'Accessories']
 export const ghc = n => 'GH₵ ' + Number(n).toLocaleString('en-GH', { minimumFractionDigits: 2 })

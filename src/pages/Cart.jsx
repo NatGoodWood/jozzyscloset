@@ -6,11 +6,14 @@ import { useStore } from '../store'
 
 export default function Cart() {
   const { lines, setQty, clear, count, settings, user } = useStore()
-  const min = settings?.min_order ?? 10, total = lines.reduce((a, l) => a + l.price * l.qty, 0), short = min - count
+  const [fresh, setFresh] = useState({})
+  const price = l => Number(fresh[l.id]?.price ?? l.price)
+  const min = settings?.min_order ?? 10, total = lines.reduce((a, l) => a + price(l) * l.qty, 0), short = min - count
   const [f, setF] = useState({ name: '', email: '', phone: '', address: '' })
   const [busy, setBusy] = useState(false), [err, setErr] = useState(''), [done, setDone] = useState(null)
   const [t, setT] = useState({ ref: '', phone: '' }), [status, setStatus] = useState(null)
   const settled = useRef(false)
+  useEffect(() => { const ids = [...new Set(lines.map(l => l.id))]; if (!ids.length) return; supabase.from('items').select('id,price').in('id', ids).then(({ data }) => setFresh(Object.fromEntries((data || []).map(i => [i.id, i])))) }, [lines.length])
   useEffect(() => { if (user) setF(x => ({ ...x, name: x.name || user.user_metadata?.full_name || '', email: x.email || user.email || '' })) }, [user])
   const set = k => e => setF({ ...f, [k]: e.target.value })
   const validEmail = /^\S+@\S+\.\S+$/.test(f.email.trim())
@@ -49,7 +52,7 @@ export default function Cart() {
     {lines.length > 0 && <>
       <section className="box">
         {lines.map(l => <div className="row" key={l.key}>
-          <span className="thumb">{l.image && <img src={l.image} alt="" />}<span>{l.name}<small>Size: {l.size} · {ghc(l.price)} each</small></span></span>
+          <span className="thumb">{l.image && <img src={l.image} alt="" />}<span>{l.name}<small>Single piece · Size: {l.size} · {ghc(price(l))} each</small></span></span>
           <span className="qty"><button onClick={() => setQty(l.key, l.qty - 1)} aria-label="Less">−</button><span>{l.qty}</span><button onClick={() => setQty(l.key, l.qty + 1)} aria-label="More">+</button></span>
         </div>)}
         <div className="row total"><span>{count} pieces</span><b>{ghc(total)}</b></div>

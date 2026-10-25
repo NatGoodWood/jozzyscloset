@@ -5,6 +5,7 @@ export default function ComingSoon({ left, settings }) {
   const t = Math.max(0, left), pad = n => String(n).padStart(2, '0')
   const units = [['Days', Math.floor(t / 864e5)], ['Hours', Math.floor(t % 864e5 / 36e5)], ['Minutes', Math.floor(t % 36e5 / 6e4)], ['Seconds', Math.floor(t % 6e4 / 1e3)]]
   const date = LAUNCH_AT.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
+  const time = LAUNCH_AT.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'UTC' }).toUpperCase()
   const wa = settings && settings.whatsapp && settings.whatsapp !== '233240000000' ? 'https://wa.me/' + settings.whatsapp.replace(/\D/g, '') : null
   return (<div className="cs">
     <div className="cs-in">
@@ -14,7 +15,7 @@ export default function ComingSoon({ left, settings }) {
       </div>
       <p className="script">Something beautiful is on its way</p>
       <h1>Coming Soon</h1>
-      <p>Trendy styles, bigger profits. Our wholesale store opens on <b>{date}</b>.</p>
+      <p>Trendy styles, bigger profits. Our wholesale store opens on <b>{date}</b> at <b>{time}</b> (Ghana time).</p>
       <div className="count" role="timer" aria-label={`Time until launch: ${units.map(([l, n]) => n + ' ' + l).join(', ')}`}>
         {units.map(([l, n]) => <div key={l}><b>{l === 'Days' ? n : pad(n)}</b><span>{l}</span></div>)}
       </div>

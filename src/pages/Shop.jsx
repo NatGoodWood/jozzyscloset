@@ -6,7 +6,7 @@ import { ItemCard } from '../ui'
 
 export function Shop() {
   const [sp, setSp] = useSearchParams(), cat = sp.get('cat') || '', q = sp.get('q') || '', sort = sp.get('sort') || 'latest'
-  const [items, setItems] = useState(null)
+  const [items, setItems] = useState(null), { settings } = useStore()
   useEffect(() => { supabase.from('items').select('*').order('created_at', { ascending: false }).then(({ data }) => setItems(data || [])) }, [])
   const set = (k, v) => { const n = new URLSearchParams(sp); v ? n.set(k, v) : n.delete(k); setSp(n) }
   let list = (items || []).filter(i => (!cat || i.category === cat) && (!q || i.name.toLowerCase().includes(q.toLowerCase())))
@@ -15,6 +15,7 @@ export function Shop() {
   return (<main>
     <nav className="crumbs"><Link to="/">Home</Link> / {cat ? <><Link to="/shop">Shop</Link> / <b>{cat}</b></> : <b>Shop</b>}</nav>
     <h1>{cat || (q ? `Results for “${q}”` : 'Shop')}</h1>
+    <p className="sub"><span className="pill">Single pieces</span> Every item is sold as one piece. Mix any styles and sizes to reach your {settings?.min_order ?? 10}-piece minimum.</p>
     <div className="filters">
       <div className="chips"><button className={'chip' + (!cat ? ' on' : '')} onClick={() => set('cat', '')}>All</button>
         {CATEGORIES.map(c => <button key={c} className={'chip' + (cat === c ? ' on' : '')} onClick={() => set('cat', c)}>{c}</button>)}</div>
