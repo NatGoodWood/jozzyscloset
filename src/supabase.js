@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 
 // Supabase > Project Settings > API: Project URL and the publishable (anon) key. Never use a secret/service_role key here.
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://hwhwltnpjmcgfqibsdcz.supabase.co'
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_cwxGc1O8o-VzF1cxfSAsfA_ZucOFS4k'
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://wnarzesnbrbwudrktnxs.supabase.co'
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_qnEh-TMY1Wu8AJXeL_ir3g_icm7TN2l'
 
 export const configured = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY)
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
