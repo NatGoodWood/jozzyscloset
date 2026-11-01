@@ -102,7 +102,7 @@ export default function App() {
     </Routes>
     {!bare && <footer>
       <div className="creed"><span>Fashion</span><span>Quality</span><span>Trust</span><span>Grow Together</span></div>
-      <div className="fbar"><span>© {new Date().getFullYear()} Jozzys Closet · jozzyscloset.com</span><Link to="/admin" className="fadmin">Admin</Link></div>
+      <div className="fbar"><span>© {new Date().getFullYear()} Jozzys Closet · jozzyscloset.com||Developed by Pacawood Services &reg;</span><Link to="/admin" className="fadmin">Admin</Link></div>
     </footer>}
   </>)
 }
